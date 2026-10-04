@@ -18,6 +18,9 @@ public class MotorTest0 extends LinearOpMode {
             }
         }
 
+        telemetry.addData("Controls", "Hold X: spin forward, Hold B: spin backward, otherwise: no spin; Hold Y = set 100%, Hold A = set 75%, default: set 50%");
+        telemetry.update();
+
         if (motor == null) {
             telemetry.addLine("No motor configured on port 0");
             telemetry.update();
