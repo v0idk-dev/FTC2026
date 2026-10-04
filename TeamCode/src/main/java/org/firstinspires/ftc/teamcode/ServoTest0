@@ -1,0 +1,137 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.PwmControl;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
+import com.qualcomm.robotcore.util.Range;
+
+@TeleOp(name = "Servo Port 0 Auto")
+public class ServoAuto extends LinearOpMode {
+
+    static final double RANGE_DEG = 270;
+    static final double START_TARGET_DEG = 135;
+
+    @Override
+    public void runOpMode() {
+        // detect what is on port 0
+        CRServo crServo = null;
+        for (CRServo c : hardwareMap.getAll(CRServo.class)) {
+            if (c.getPortNumber() == 0) crServo = c;
+        }
+
+        ServoImplEx servo = null;
+        if (crServo == null) {
+            for (Servo s : hardwareMap.getAll(Servo.class)) {
+                if (s.getPortNumber() == 0) servo = (ServoImplEx) s;
+            }
+        }
+
+        if (crServo == null && servo == null) {
+            telemetry.addLine("No servo (CR or normal) on port 0");
+            telemetry.update();
+            waitForStart();
+            return;
+        }
+
+        if (crServo != null) {
+            runCR(crServo);
+        } else {
+            runPositional(servo);
+        }
+    }
+
+    // ---------------- continuous rotation ----------------
+    private void runCR(CRServo servo) {
+        waitForStart();
+        while (opModeIsActive()) {
+            // Y = 100%, A = 75%, default 50%
+            double speed = gamepad1.y ? 1.0 : (gamepad1.a ? 0.75 : 0.5);
+
+            double power = 0;
+            if (gamepad1.x && !gamepad1.b) power = speed;
+            else if (gamepad1.b && !gamepad1.x) power = -speed;
+
+            servo.setPower(power);
+
+            telemetry.addData("Mode", "Continuous rotation");
+            telemetry.addData("Current power", "%.2f", power);
+            telemetry.addData("Target power", "%.2f", speed);
+            telemetry.addLine("");
+            telemetry.addLine("X: forward | B: backward (release = stop)");
+            telemetry.addLine("Hold Y: 100% | Hold A: 75% | Default: 50%");
+            telemetry.update();
+        }
+        servo.setPower(0);
+    }
+
+    // ---------------- positional ----------------
+    private void runPositional(ServoImplEx servo) {
+        servo.setPwmRange(new PwmControl.PwmRange(500, 2500));
+
+        double target = START_TARGET_DEG;
+        double current = Double.NaN; // unknown until first command
+        boolean pRB = false, pLB = false, pRT = false, pLT = false;
+        boolean pR = false, pL = false, pU = false, pD = false;
+        boolean pA = false, pB = false;
+
+        waitForStart();
+        while (opModeIsActive()) {
+            boolean rb = gamepad1.right_bumper, lb = gamepad1.left_bumper;
+            boolean rt = gamepad1.right_trigger > 0.5, lt = gamepad1.left_trigger > 0.5;
+            boolean r = gamepad1.dpad_right, l = gamepad1.dpad_left;
+            boolean u = gamepad1.dpad_up, d = gamepad1.dpad_down;
+            boolean a = gamepad1.a, b = gamepad1.b;
+
+            // RED (B): emergency stop
+            if (b && !pB) {
+                servo.setPwmDisable();
+                current = Double.NaN;
+            }
+
+            // adjust target: bumpers = 1, triggers = 10
+            if (rb && !pRB) target += 1;
+            if (lb && !pLB) target -= 1;
+            if (rt && !pRT) target += 10;
+            if (lt && !pLT) target -= 10;
+            target = Range.clip(target, 0, RANGE_DEG);
+
+            // GREEN (A): go to target
+            if (a && !pA) {
+                current = target;
+                servo.setPosition(current / RANGE_DEG);
+                servo.setPwmEnable();
+            }
+
+            // D-pad: relative moves (left/right = 5, up/down = 15)
+            if (!Double.isNaN(current) && !b) {
+                double step = 0;
+                if (r && !pR) step += 5;
+                if (l && !pL) step -= 5;
+                if (u && !pU) step += 15;
+                if (d && !pD) step -= 15;
+                if (step != 0) {
+                    current = Range.clip(current + step, 0, RANGE_DEG);
+                    target = current;
+                    servo.setPosition(current / RANGE_DEG);
+                }
+            }
+
+            pRB = rb; pLB = lb; pRT = rt; pLT = lt;
+            pR = r; pL = l; pU = u; pD = d;
+            pA = a; pB = b;
+
+            telemetry.addData("Mode", "Positional");
+            telemetry.addData("Current position", Double.isNaN(current) ? "unknown" : String.format("%.1f", current));
+            telemetry.addData("Target position", "%.1f", target);
+            telemetry.addLine("");
+            telemetry.addLine("Bumpers: target +/- 1 | Triggers: target +/- 10");
+            telemetry.addLine("A (green): go to target");
+            telemetry.addLine("D-pad L/R: move 5 | D-pad U/D: move 15");
+            telemetry.addLine("B (red): STOP");
+            telemetry.update();
+        }
+    }
+}
