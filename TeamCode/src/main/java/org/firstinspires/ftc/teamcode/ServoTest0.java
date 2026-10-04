@@ -8,8 +8,8 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.Range;
 
-@TeleOp(name = "Servo Port 0 Auto")
-public class ServoAuto extends LinearOpMode {
+@TeleOp(name = "Port0 Servo Test")
+public class ServoTest0 extends LinearOpMode {
 
     static final double RANGE_DEG = 270;
     static final double START_TARGET_DEG = 135;

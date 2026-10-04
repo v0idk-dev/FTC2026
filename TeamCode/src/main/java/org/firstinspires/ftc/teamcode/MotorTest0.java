@@ -18,9 +18,6 @@ public class MotorTest0 extends LinearOpMode {
             }
         }
 
-        telemetry.addData("Controls", "Hold X: spin forward, Hold B: spin backward, otherwise: no spin; Hold Y = set 100%, Hold A = set 75%, default: set 50%");
-        telemetry.update();
-
         if (motor == null) {
             telemetry.addLine("No motor configured on port 0");
             telemetry.update();
@@ -34,19 +31,24 @@ public class MotorTest0 extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            // speed modifier: Y = 100%, A = 75%, default 50% (Y wins if both held)
+            // Y = 100%, A = 75%, default 50%
             double speed = gamepad1.y ? 1.0 : (gamepad1.a ? 0.75 : 0.5);
 
             double power = 0;
             if (gamepad1.x && !gamepad1.b) {
-                power = speed;       // forward
+                power = speed;
             } else if (gamepad1.b && !gamepad1.x) {
-                power = -speed;      // backward
-            }                        // neither, or both: stop
+                power = -speed;
+            }
 
             motor.setPower(power);
 
-            telemetry.addData("Power", power);
+            telemetry.addData("Mode", "Motor");
+            telemetry.addData("Current power", "%.2f", power);
+            telemetry.addData("Target power", "%.2f", speed);
+            telemetry.addLine("");
+            telemetry.addLine("X: forward | B: backward (release = stop)");
+            telemetry.addLine("Hold Y: 100% | Hold A: 75% | Default: 50%");
             telemetry.update();
         }
 
