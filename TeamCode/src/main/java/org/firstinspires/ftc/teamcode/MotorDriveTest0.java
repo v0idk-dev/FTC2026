@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PwmControl;
@@ -9,7 +10,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.Range;
 
-// gamepad controls
+// gamepad1 controls
 // joystick: drive
 // button:
 // x and y to move lift_servo
@@ -22,6 +23,10 @@ import com.qualcomm.robotcore.util.Range;
 // trigger:
 // right for 50% of misc motor (named intake)
 // left for 75% of misc motor (named intake)
+
+// gamepad2 controls
+// joystick left: nectar servo (not implemented yet)
+// joystick left: direct pollen servo
 
 @TeleOp(name = "Port0 Driving Motor Test", group = "Test")
 public class MotorDriveTest0 extends LinearOpMode {
@@ -77,6 +82,11 @@ public class MotorDriveTest0 extends LinearOpMode {
         // TODO add turret servo w/ enocder on port 3
         // literally just copy code for EncoderPositionController into here (no visipn yet)
 
+        ThroughBoreEncoder pollenThroughBoreEncoder = hardwareMap.get(ThroughBoreEncoder.class, "pollen_through_bore_encoder");
+        CRServo pollenServo = hardwareMap.get(CRServo.class, "pollen_servo");
+
+        EncoderPositionController pollenTurretController = new EncoderPositionController(pollenThroughBoreEncoder, pollenServo);
+
         // for servo that feeds into turret (port 4)
         ServoImplEx liftServo =
                 hardwareMap.get(ServoImplEx.class, "lift_servo");
@@ -123,6 +133,13 @@ public class MotorDriveTest0 extends LinearOpMode {
                 double x = shape(gamepad1.left_stick_y);
                 double rx = shape(gamepad1.right_stick_x);
 
+                // 2nd gamepad for shooting
+                // problem: we don't know the range of the turret servos.
+                double x2 = shape(gamepad2.left_stick_x);
+                double y2 = shape(gamepad2.left_stick_y);
+                double rx2 = shape(gamepad2.right_stick_x);
+                double ry2 = shape(gamepad2.right_stick_y);
+
                 double pTL = y + x + rx;
                 double pTR = y - x - rx;
                 double pBL = y - x + rx;
@@ -149,6 +166,11 @@ public class MotorDriveTest0 extends LinearOpMode {
                 // intake/shooter/misc motor
                 // right tigger for 50 percent
                 // left trigger for 75 percent
+
+                // TODO: maybe change intake controls
+                // Should we make intake a toggle instead of a held control for driver's convenience?
+                // Also, do we really need to run the intake at anything other than 100% and 0%?
+                //      (In what cases would we need variable intake speed?)
                 double intakePower = 0;
 
                 if (gamepad1.left_trigger > 0.5) {
@@ -205,7 +227,7 @@ public class MotorDriveTest0 extends LinearOpMode {
 
                 }
 
-                // lift servo (xyab)
+                // lift servo (xy/ab)
                 // x and y for up and down (idk which is which)
                 // b to stop
                 // a to go to target
@@ -241,6 +263,18 @@ public class MotorDriveTest0 extends LinearOpMode {
 
                     }
                 }
+
+                // Code to rotate the turret servos using gamepad2's sticks
+
+                // get target angle.
+
+                // I don't know what the "0" angle of the turret servo is
+                // so the target angle may need to be offset by a constant
+
+                double pollenAngle = Math.atan2(rx2, ry2);
+                pollenTurretController.setTarget(pollenAngle);
+
+                pollenTurretController.update();
 
                 pRight = right;
                 pLeft = left;
