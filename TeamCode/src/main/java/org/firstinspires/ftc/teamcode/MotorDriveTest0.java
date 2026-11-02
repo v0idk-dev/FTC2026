@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 // gamepad1 controls
@@ -21,8 +22,8 @@ import com.qualcomm.robotcore.util.Range;
 // up and down for 15 degree change
 // WHEN YOU CONTROL IT FOR THE FIRST TIME, NO MATTER WHICH BUTTON YOU PRESS, THE FIRST TARGET ANGLE WILL BE START_TARGET_DEG + whatever you commanded
 // trigger:
-// right for 50% of misc motor (named intake)
-// left for 75% of misc motor (named intake)
+// left for powering the intake motor
+// right for powering the pollen launch motor
 
 // gamepad2 controls
 // joystick left: nectar servo (not implemented yet)
@@ -35,8 +36,9 @@ public class MotorDriveTest0 extends LinearOpMode {
     static final double shovel_range_deg = 270;
     static final double shovel_start_target_deg = 135;
 
-    static final double lift_range_deg = 270;
-    static final double lift_start_target_deg = 135;
+    static final double lift_start_percent = 0;
+    static final double lift_end_percent = 1; // change this value based on experimentation
+    double transferServoUpTime;
 
     static final double deadzone = 0.05;
     static final boolean square_inputs = true;
@@ -78,40 +80,42 @@ public class MotorDriveTest0 extends LinearOpMode {
 
         double shovelTarget = shovel_start_target_deg;
 
+        // Set up turret encoder controller(s)
 
-        // TODO add turret servo w/ enocder on port 3
-        // literally just copy code for EncoderPositionController into here (no visipn yet)
+//        ThroughBoreEncoder pollenThroughBoreEncoder = new ThroughBoreEncoder(hardwareMap, "pollen_bore_encoder");
+//        CRServo pollenServo = hardwareMap.get(CRServo.class, "pollen_servo");
 
-        ThroughBoreEncoder pollenThroughBoreEncoder = hardwareMap.get(ThroughBoreEncoder.class, "pollen_through_bore_encoder");
-        CRServo pollenServo = hardwareMap.get(CRServo.class, "pollen_servo");
-
-        EncoderPositionController pollenTurretController = new EncoderPositionController(pollenThroughBoreEncoder, pollenServo);
+//        EncoderPositionController pollenTurretController = new EncoderPositionController(pollenThroughBoreEncoder, pollenServo);
 
         // for servo that feeds into turret (port 4)
         ServoImplEx liftServo =
                 hardwareMap.get(ServoImplEx.class, "lift_servo");
 
-
         liftServo.setPwmRange(new PwmControl.PwmRange(500, 2500));
         liftServo.setDirection(Servo.Direction.FORWARD);
-
-        double liftTarget = lift_start_target_deg;
 
         mainServo.setPwmDisable();
         mirrorServo.setPwmDisable();
         liftServo.setPwmDisable();
 
 
-        // port 0 on expansion hub (could be for intake or shooting)
         // make sure the expansion hub light is green or else this entire program won't run
         // might need to change battery
         DcMotor intakeMotor =
                 hardwareMap.get(DcMotor.class, "intake");
 
-        intakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        intakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setPower(0);
+
+        DcMotor pollenLaunchMotor =
+                hardwareMap.get(DcMotor.class, "pollen_launch");
+
+        pollenLaunchMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        pollenLaunchMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        pollenLaunchMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        pollenLaunchMotor.setPower(0);
 
         boolean pRight = false;
         boolean pLeft = false;
@@ -123,7 +127,13 @@ public class MotorDriveTest0 extends LinearOpMode {
         boolean pA = false;
         boolean pB = false;
 
+        ElapsedTime runtime = new ElapsedTime();
+
         waitForStart();
+
+        runtime.reset();
+
+        liftServo.setPosition(0);
 
         try {
             while (opModeIsActive()) {
@@ -163,23 +173,21 @@ public class MotorDriveTest0 extends LinearOpMode {
                 bl.setPower(pBL);
                 br.setPower(pBR);
 
-                // intake/shooter/misc motor
-                // right tigger for 50 percent
-                // left trigger for 75 percent
+                // left trigger gives you 100% on intake motor
 
-                // TODO: maybe change intake controls
-                // Should we make intake a toggle instead of a held control for driver's convenience?
-                // Also, do we really need to run the intake at anything other than 100% and 0%?
-                //      (In what cases would we need variable intake speed?)
                 double intakePower = 0;
-
                 if (gamepad1.left_trigger > 0.5) {
-                    intakePower = 0.75;
-                } else if (gamepad1.right_trigger > 0.5) {
-                    intakePower = 0.50;
+                    intakePower = 1.00;
                 }
-
                 intakeMotor.setPower(intakePower);
+
+                // right trigger gives you 75% on launch motor
+
+                double pollenLaunchPower = 0;
+                if (gamepad1.right_trigger > 0.5) {
+                    pollenLaunchPower = 0.60;
+                }
+                pollenLaunchMotor.setPower(pollenLaunchPower);
 
                 // buttons
                 boolean right = gamepad1.dpad_right;
@@ -235,46 +243,25 @@ public class MotorDriveTest0 extends LinearOpMode {
                     liftServo.setPwmDisable();
                 }
 
-                if (!buttonB) {
-                    double liftStep = 0;
-
-                    if (buttonX && !pX && !buttonY) {
-                        liftStep = 5;
-                    }
-
-                    if (buttonY && !pY && !buttonX) {
-                        liftStep = -5;
-                    }
-
-
-                    boolean goToTarget = buttonA && !pA;
-
-                    if (liftStep != 0 || goToTarget) {
-                        liftTarget = Range.clip(
-                                liftTarget + liftStep,
-                                0,
-                                lift_range_deg
-                        );
-
-                        liftServo.setPosition(
-                                liftTarget / lift_range_deg
-                        );
-                        liftServo.setPwmEnable();
-
-                    }
+                // If X is held, go up. Otherwise, return to 0
+                if (!buttonB && buttonX) {
+                    transferServoUpTime = runtime.seconds();
+                    liftServo.setPosition(lift_end_percent);
+                } else if (transferServoUpTime > 2.0) {
+                    liftServo.setPosition(lift_start_percent);
                 }
 
-                // Code to rotate the turret servos using gamepad2's sticks
-
-                // get target angle.
-
-                // I don't know what the "0" angle of the turret servo is
-                // so the target angle may need to be offset by a constant
-
-                double pollenAngle = Math.atan2(rx2, ry2);
-                pollenTurretController.setTarget(pollenAngle);
-
-                pollenTurretController.update();
+//                // Code to rotate the turret servos using gamepad2's sticks
+//
+//                // get target angle.
+//
+//                // I don't know what the "0" angle of the turret servo is
+//                // so the target angle may need to be offset by a constant
+//
+//                double pollenAngle = Math.atan2(rx2, ry2);
+//                pollenTurretController.setTarget(pollenAngle);
+//
+//                pollenTurretController.update();
 
                 pRight = right;
                 pLeft = left;
@@ -291,7 +278,6 @@ public class MotorDriveTest0 extends LinearOpMode {
                 telemetry.addData("Drive BL / BR", "%.2f / %.2f", pBL, pBR);
 
                 telemetry.addData("Main/mirror target", "%.1f degrees", shovelTarget);
-                telemetry.addData("Lift target", "%.1f degrees", liftTarget);
                 telemetry.addData("Intake power", "%.0f%%", intakePower * 100);
 
                 telemetry.update();
@@ -302,6 +288,7 @@ public class MotorDriveTest0 extends LinearOpMode {
             bl.setPower(0);
             br.setPower(0);
             intakeMotor.setPower(0);
+            pollenLaunchMotor.setPower(0);
         }
     }
 
