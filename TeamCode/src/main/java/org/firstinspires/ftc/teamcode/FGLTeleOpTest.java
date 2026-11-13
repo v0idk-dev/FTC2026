@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PwmControl;
@@ -29,15 +28,15 @@ import com.qualcomm.robotcore.util.Range;
 // joystick left: nectar servo (not implemented yet)
 // joystick left: direct pollen servo
 
-@TeleOp(name = "Port0 Driving Motor Test", group = "Test")
-public class MotorDriveTest0 extends LinearOpMode {
+@TeleOp(name = "FGL TeleOp Test", group = "Test")
+public class FGLTeleOpTest extends LinearOpMode {
 
     // both servos have a limit of 270 degrees btw
     static final double shovel_range_deg = 270;
     static final double shovel_start_target_deg = 135;
 
     static final double lift_start_percent = 0;
-    static final double lift_end_percent = 1; // change this value based on experimentation
+    static final double lift_end_percent = 1;
     double transferServoUpTime;
 
     static final double deadzone = 0.05;
@@ -51,10 +50,10 @@ public class MotorDriveTest0 extends LinearOpMode {
         DcMotor bl = hardwareMap.get(DcMotor.class, "bl");
         DcMotor br = hardwareMap.get(DcMotor.class, "br");
 
-        tl.setDirection(DcMotorSimple.Direction.REVERSE);
+        tl.setDirection(DcMotorSimple.Direction.FORWARD);
         tr.setDirection(DcMotorSimple.Direction.FORWARD);
         bl.setDirection(DcMotorSimple.Direction.REVERSE);
-        br.setDirection(DcMotorSimple.Direction.FORWARD);
+        br.setDirection(DcMotorSimple.Direction.REVERSE);
 
         for (DcMotor motor : new DcMotor[]{tl, tr, bl, br}) {
             motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
