@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.PwmControl;
@@ -60,12 +61,12 @@ public class FGLTeleOpTest extends LinearOpMode {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-        // for flower collector (port 0 and 2)
+        // for flower eater (port 0 and 2)
         ServoImplEx mainServo =
-                hardwareMap.get(ServoImplEx.class, "main_servo");
+                hardwareMap.get(ServoImplEx.class, "flr");
 
         ServoImplEx mirrorServo =
-                hardwareMap.get(ServoImplEx.class, "mirror_servo");
+                hardwareMap.get(ServoImplEx.class, "fll");
 
         mainServo.setDirection(Servo.Direction.FORWARD);
         mirrorServo.setDirection(Servo.Direction.REVERSE);
@@ -87,21 +88,19 @@ public class FGLTeleOpTest extends LinearOpMode {
 //        EncoderPositionController pollenTurretController = new EncoderPositionController(pollenThroughBoreEncoder, pollenServo);
 
         // for servo that feeds into turret (port 4)
-        ServoImplEx liftServo =
-                hardwareMap.get(ServoImplEx.class, "lift_servo");
 
-        liftServo.setPwmRange(new PwmControl.PwmRange(500, 2500));
-        liftServo.setDirection(Servo.Direction.FORWARD);
+        // TODO: figure out the turret-spinning servo which we try to find in the below block I've commented out
+//        CRServo turretSpinner =
+//                hardwareMap.get(CRServo.class, "mvR");
 
         mainServo.setPwmDisable();
         mirrorServo.setPwmDisable();
-        liftServo.setPwmDisable();
 
 
         // make sure the expansion hub light is green or else this entire program won't run
         // might need to change battery
         DcMotor intakeMotor =
-                hardwareMap.get(DcMotor.class, "intake");
+                hardwareMap.get(DcMotor.class, "intk");
 
         intakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -109,17 +108,29 @@ public class FGLTeleOpTest extends LinearOpMode {
         intakeMotor.setPower(0);
 
         DcMotor pollenLaunchMotor =
-                hardwareMap.get(DcMotor.class, "pollen_launch");
+                hardwareMap.get(DcMotor.class, "actR");
 
         pollenLaunchMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         pollenLaunchMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         pollenLaunchMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         pollenLaunchMotor.setPower(0);
 
+        DcMotor pollenTransferMotor =
+                hardwareMap.get(DcMotor.class, "push");
+
+        // CHANGE THIS LINE BELOW TO REVERSE IF IT SPINS THE WRONG WAY!!!!
+        pollenTransferMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        pollenTransferMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        pollenTransferMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        pollenTransferMotor.setPower(0);
+
         boolean pRight = false;
         boolean pLeft = false;
         boolean pUp = false;
         boolean pDown = false;
+
+        boolean ptriggerL = false;
+        boolean ptriggerR = false;
 
         boolean pX = false;
         boolean pY = false;
@@ -127,12 +138,12 @@ public class FGLTeleOpTest extends LinearOpMode {
         boolean pB = false;
 
         ElapsedTime runtime = new ElapsedTime();
+        double transferShooterDelay = 0;
 
         waitForStart();
 
         runtime.reset();
 
-        liftServo.setPosition(0);
 
         try {
             while (opModeIsActive()) {
@@ -148,6 +159,21 @@ public class FGLTeleOpTest extends LinearOpMode {
                 double y2 = shape(gamepad2.left_stick_y);
                 double rx2 = shape(gamepad2.right_stick_x);
                 double ry2 = shape(gamepad2.right_stick_y);
+
+
+                // buttons
+                boolean right = gamepad1.dpad_right;
+                boolean left = gamepad1.dpad_left;
+                boolean up = gamepad1.dpad_up;
+                boolean down = gamepad1.dpad_down;
+
+                boolean buttonX = gamepad1.x;
+                boolean buttonY = gamepad1.y;
+                boolean buttonA = gamepad1.a;
+                boolean buttonB = gamepad1.b;
+
+                float triggerL = (Math.abs(gamepad1.left_trigger) - deadzone < 0 ? 0 : gamepad1.left_trigger);
+                float triggerR = (Math.abs(gamepad1.right_trigger) - deadzone < 0 ? 0 : gamepad1.right_trigger);
 
                 double pTL = y + x + rx;
                 double pTR = y - x - rx;
@@ -183,21 +209,16 @@ public class FGLTeleOpTest extends LinearOpMode {
                 // right trigger gives you 75% on launch motor
 
                 double pollenLaunchPower = 0;
+                double pollenTransferPower = 0;
                 if (gamepad1.right_trigger > 0.5) {
                     pollenLaunchPower = 0.60;
+                    if (!ptriggerR) transferShooterDelay = runtime.seconds() + 0.67;
+                    if (runtime.seconds() > transferShooterDelay) {
+                        pollenTransferPower = 1.00;
+                    }
                 }
                 pollenLaunchMotor.setPower(pollenLaunchPower);
-
-                // buttons
-                boolean right = gamepad1.dpad_right;
-                boolean left = gamepad1.dpad_left;
-                boolean up = gamepad1.dpad_up;
-                boolean down = gamepad1.dpad_down;
-
-                boolean buttonX = gamepad1.x;
-                boolean buttonY = gamepad1.y;
-                boolean buttonA = gamepad1.a;
-                boolean buttonB = gamepad1.b;
+                pollenTransferMotor.setPower(pollenTransferPower);
 
                 // flower eater (dpad)
                 double shovelStep = 0;
@@ -238,17 +259,18 @@ public class FGLTeleOpTest extends LinearOpMode {
                 // x and y for up and down (idk which is which)
                 // b to stop
                 // a to go to target
-                if (buttonB && !pB) {
-                    liftServo.setPwmDisable();
-                }
+                // TODO: Change this old liftServo code to hot new turretSpinner CRServo controls.
+//                if (buttonB && !pB) {
+//                    liftServo.setPwmDisable();
+//                }
 
                 // If X is held, go up. Otherwise, return to 0
-                if (!buttonB && buttonX) {
-                    transferServoUpTime = runtime.seconds();
-                    liftServo.setPosition(lift_end_percent);
-                } else if (transferServoUpTime > 2.0) {
-                    liftServo.setPosition(lift_start_percent);
-                }
+//                if (!buttonB && buttonX) {
+//                    transferServoUpTime = runtime.seconds();
+//                    liftServo.setPosition(lift_end_percent);
+//                } else if (transferServoUpTime > 2.0) {
+//                    liftServo.setPosition(lift_start_percent);
+//                }
 
 //                // Code to rotate the turret servos using gamepad2's sticks
 //
@@ -266,6 +288,9 @@ public class FGLTeleOpTest extends LinearOpMode {
                 pLeft = left;
                 pUp = up;
                 pDown = down;
+
+                ptriggerL = Math.abs(gamepad1.left_trigger) - deadzone < 0;
+                ptriggerR = Math.abs(gamepad1.right_trigger) - deadzone < 0;
 
                 pX = buttonX;
                 pY = buttonY;
