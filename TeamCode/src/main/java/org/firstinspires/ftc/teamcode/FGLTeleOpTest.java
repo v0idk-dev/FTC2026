@@ -29,7 +29,7 @@ import com.qualcomm.robotcore.util.Range;
 // joystick left: nectar servo (not implemented yet)
 // joystick left: direct pollen servo
 
-@TeleOp(name = "FGL TeleOp Test", group = "Test")
+@TeleOp(name = "FGL TeleOp Test", group = "1TTest")
 public class FGLTeleOpTest extends LinearOpMode {
 
     // both servos have a limit of 270 degrees btw

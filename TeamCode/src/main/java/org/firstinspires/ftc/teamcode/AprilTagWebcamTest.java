@@ -8,7 +8,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 // test to see if webcam works basically
 
-@TeleOp(name = "AprilTag Webcam Test", group = "Vision")
+@TeleOp(name = "AprilTag Webcam Test", group = "4VTest")
 public class AprilTagWebcamTest extends LinearOpMode {
 
 

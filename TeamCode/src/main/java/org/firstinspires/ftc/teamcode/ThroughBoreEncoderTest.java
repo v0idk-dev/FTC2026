@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-@TeleOp(name = "Through Bore Encoder Test")
+@TeleOp(name = "Through Bore Encoder Test", group = "2STest")
 public class ThroughBoreEncoderTest extends OpMode {
 
     // Must match the motor name you give this port in the Robot Configuration.

@@ -13,7 +13,7 @@ import org.firstinspires.ftc.teamcode.EncoderPositionController;
 import org.firstinspires.ftc.teamcode.ThroughBoreEncoder;
 
 // to control turret servo with encoder
-@TeleOp(name = "Servo Position Test")
+@TeleOp(name = "Servo Position Test", group = "2STest")
 public class ServoPositionTest extends OpMode {
     ThroughBoreEncoder encoder;
     EncoderPositionController controller;

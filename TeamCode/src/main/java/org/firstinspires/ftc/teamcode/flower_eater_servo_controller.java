@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.Range;
 
-@TeleOp(name = "Port0 Servo Test")
+@TeleOp(name = "Flower Servo Test", group = "2STest")
 public class flower_eater_servo_controller extends LinearOpMode {
 
     static final double RANGE_DEG = 270;

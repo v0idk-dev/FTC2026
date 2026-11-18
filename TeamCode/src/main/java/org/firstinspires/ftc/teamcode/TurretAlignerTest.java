@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -9,6 +10,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 // TODO: switch turret_servo to continuous rotation servo with servo programmer
 // TODO: add encoder code and track position with ticks
 
+@TeleOp(name = "Turret Aligner Test", group = "2STest")
 public class TurretAlignerTest extends OpMode {
     AprilTagWebcam webcam = new AprilTagWebcam();
     private TurretAligner turret = new TurretAligner();

@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.Range;
 
-@TeleOp(name = "Port0 Servo Test")
+@TeleOp(name = "Port0 Servo Test", group = "2STest")
 public class ServoTest0 extends LinearOpMode {
 
     static final double RANGE_DEG = 270;
