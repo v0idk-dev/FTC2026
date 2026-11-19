@@ -1,9 +1,11 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.PwmControl;
@@ -21,7 +23,7 @@ import java.util.Set;
 
 /*
  * ============================================================================================
- *  TeleOpPrelim  (program v1.7.2, diagram v4.12.5, config v4-12-4)
+ *  TeleOpPrelim  (program v1.8.2, diagram v4.12.5, config v4-12-4)
  * ============================================================================================
  *  the "one teleop" that will become the final. it's built so it runs on a half-built robot:
  *
@@ -32,6 +34,9 @@ import java.util.Set;
  *     area at the bottom of the screen), so they don't eat the normal telemetry lines.
  *   - if a part throws an error while running (cable pulled, etc), that part gets disabled,
  *     a log message tells you which one, and everything else keeps running.
+ *   - all 8 motors run on VELOCITY (setVelocity), not raw power. every "power"/"speed" number
+ *     in TUNING still means fraction of max speed (0-1), the code converts it using the motor's rpm.
+ *     if a motor's encoder doesn't read, that motor drops back to plain power and the log says so.
  *
  *  ---------------- PRIMARY CONTROLLER (gamepad1) ----------------
  *   left stick         drive (forward/back + strafe)
@@ -66,39 +71,55 @@ import java.util.Set;
  *   whichever MOTOR port its cable plugs into.
  * ============================================================================================
  */
+
 @TeleOp(name = "TeleOp Prelim", group = "0Main")
 public class TeleOpPrelim extends OpMode {
 
+    static final String VERSION = "v1.8.2 d4.12.5 c4-12-4";
+
     // =========================================================================================
-    //  CONFIG NAMES
+    // #region CONFIG NAMES
     // =========================================================================================
+
     static final String TL = "tl", TR = "tr", BL = "bl", BR = "br";
     static final String INTK = "intk";
-    static final String PUSH = "push";   // pollen ramp motor
-    static final String ACT_R = "actR";  // POLLEN shooter (right side, has the turret)
-    static final String ACT_L = "actL";  // NECTAR shooter (left side, no turret)
-    static final String FLR = "flr";     // flower servo, main
-    static final String FLL = "fll";     // flower servo, mirror of flr
-    static final String MV_R = "mvR";    // pollen turret CR servo
-    // nectar stopper servo. NOT on the diagram yet, "stp" on servo port D3 is a guess.
-    // once it's added to the robot config, change this name to match.
-    static final String STP = "stp";
-    static final String PPC = "ppc";     // pinpoint (ignored for now)
-    static final String VIZ1 = "viz1";   // pollen turret camera (ignored for now)
+    static final String PUSH = "push";             // pollen ramp motor
+    static final String ACT_R = "actR";            // POLLEN shooter (right side, has the turret)
+    static final String ACT_L = "actL";            // NECTAR shooter (left side, no turret)
+    static final String FLR = "flr";               // flower servo, main
+    static final String FLL = "fll";               // flower servo, mirror of flr
+    static final String MV_R = "mvR";              // pollen turret CR servo
+    static final String STP = "stp";               // nectar stopper servo. NOT on the diagram yet
+    static final String PPC = "ppc";               // pinpoint (ignored for now)
+    static final String VIZ1 = "viz1";             // pollen turret camera (ignored for now)
 
     // =========================================================================================
-    //  TUNING  (everything you'd want to change is up here)
+    // #region TUNING
     // =========================================================================================
+
+    // ---- motors (velocity control) ----
+    // every power/speed value below is a fraction of max speed (0-1). the code turns it into
+    // a velocity: ticks/sec = fraction * max ticks/sec, where max comes from the motor's rpm.
+    // change the rpm here if a motor gets swapped, nothing else needs to change.
+    static final boolean USE_VELOCITY = true;      // false = plain setPower on every motor (old way)
+    static final double DRIVE_RPM = 6000;          // tl, tr, bl, br
+    static final double INTAKE_RPM = 312;          // intk
+    static final double PUSH_RPM = 312;            // push
+    static final double POLLEN_RPM = 6000;         // actR
+    static final double NECTAR_RPM = 6000;         // actL
+    // goBILDA yellow jacket constants (same for every gear ratio)
+    static final double GOBILDA_BARE_RPM = 6000;   // motor speed before the gearbox
+    static final double GOBILDA_ENCODER_CPR = 28;  // encoder ticks per motor rev (before the gearbox)
+    // encoder check: if a motor is told to go faster than CHECK_SPEED for CHECK_TIME and its encoder
+    // still reads 0, it falls back to plain power (unplugged encoder cable, etc)
+    static final double ENCODER_CHECK_SPEED = 0.20;
+    static final double ENCODER_CHECK_TIME = 0.50; // seconds
 
     // ---- drive ----
-    // pt drove too fast, so everything gets scaled down. 1.0 = full speed.
-    static final double DRIVE_SPEED = 0.70;  // forward/back + strafe
-    static final double TURN_SPEED = 0.80;   // rotation
-    // turning was reversed in pt, this flips it. if it's backwards again, set to false.
-    static final boolean INVERT_TURN = true;
-    static final double DEADZONE = 0.05;
-    static final boolean SQUARE_INPUTS = true;  // finer control near center of the stick
-    // (before 11/18 both speeds were 1.0, pt has no scaling)
+    static final double DRIVE_SPEED = 0.70;        // forward/back + strafe
+    static final double TURN_SPEED = 0.80;         // rotation speed
+    static final double DEADZONE = 0.05;           // ignore small stick movements (0-1)
+    static final boolean SQUARE_INPUTS = true;     // finer control near center of the stick
 
     // ---- smooth drive (ramping) ----
     // instead of jumping straight to the stick value, drive power moves toward it at a max rate.
@@ -107,9 +128,9 @@ public class TeleOpPrelim extends OpMode {
     //   e.g. RAMP_DOWN_PER_SEC = 4.0 -> from DRIVE_SPEED 0.6 to stopped in 0.6 / 4 = 0.15s
     //   lower number = smoother but floatier. higher = snappier. too low and the robot overshoots.
     // SMOOTH_DRIVE = false turns it off completely (instant, like pt).
-    static final boolean SMOOTH_DRIVE = true;
-    static final double RAMP_DOWN_PER_SEC = 2.5;  // slowing down / stopping / reversing
-    static final double RAMP_UP_PER_SEC = 7.5;    // speeding up (higher so it still feels responsive)
+    static final boolean SMOOTH_DRIVE = true;      // toggle smoothing starting and stopping
+    static final double RAMP_DOWN_PER_SEC = 2.5;   // slowing down / stopping / reversing
+    static final double RAMP_UP_PER_SEC = 7.5;     // speeding up (motor power change per second)
 
     // ---- intake ----
     static final double INTAKE_POWER = 1.0;
@@ -123,10 +144,10 @@ public class TeleOpPrelim extends OpMode {
     // ---- pollen shooter (actR + push) ----
     // hold RT: actR runs at REV power, after REV_TIME it switches to SHOOT power and push turns on.
     // pt used 0.60 for the shooter and 0.67s delay. ~1s delay is what we want now.
-    static final double POLLEN_REV_POWER = 0.60;
-    static final double POLLEN_SHOOT_POWER = 0.60;
-    static final double POLLEN_REV_TIME = 1.0;   // seconds before push starts
-    static final double PUSH_POWER = 1.0;
+    static final double POLLEN_REV_POWER = 0.60;    // power to spin at when revving up
+    static final double POLLEN_SHOOT_POWER = 0.60;  // power to spin at when shooting
+    static final double POLLEN_REV_TIME = 1.0;      // seconds before push starts
+    static final double PUSH_POWER = 1.0;           // power at which to spin the ramp
 
     // ---- nectar shooter (actL + stopper) ----
     // PARTIAL INFO, not built yet. all numbers are placeholders until it's on the robot.
@@ -136,14 +157,14 @@ public class TeleOpPrelim extends OpMode {
     //   3. stopper closes, waits NECTAR_RECOVER_TIME so the flywheel gets speed back
     //   4. back to step 2 while LT is still held
     // release LT: shooter off, stopper closed.
-    static final double NECTAR_REV_POWER = 0.60;
-    static final double NECTAR_SHOOT_POWER = 0.60;
-    static final double NECTAR_REV_TIME = 1.0;
-    static final double STOPPER_RANGE_DEG = 270;     // TODO: check what servo the stopper actually is
-    static final double STOPPER_CLOSED_DEG = 135;    // TODO: measure (closed = blocking)
-    static final double STOPPER_OPEN_DEG = 180;      // TODO: measure (open = lets nectar through)
-    static final double NECTAR_OPEN_TIME = 0.25;     // TODO: tune, long enough for exactly 1 nectar
-    static final double NECTAR_RECOVER_TIME = 0.50;  // TODO: tune, flywheel recovery between shots
+    static final double NECTAR_REV_POWER = 0.60;    // power to spin at when revving up
+    static final double NECTAR_SHOOT_POWER = 0.60;  // power to spin at when shooting
+    static final double NECTAR_REV_TIME = 1.0;      // seconds before stopper opens
+    static final double STOPPER_RANGE_DEG = 270;    // TODO: check what servo the stopper actually is
+    static final double STOPPER_CLOSED_DEG = 135;   // TODO: measure (closed = blocking)
+    static final double STOPPER_OPEN_DEG = 180;     // TODO: measure (open = lets nectar through)
+    static final double NECTAR_OPEN_TIME = 0.25;    // TODO: tune, long enough for exactly 1 nectar
+    static final double NECTAR_RECOVER_TIME = 0.50; // TODO: tune, flywheel recovery between shots
 
     // ---- turret (manual) ----
     // dpad left/right spins mvR at this power. NO LIMITS yet (encR isn't read), so don't wrap the wires.
@@ -152,10 +173,11 @@ public class TeleOpPrelim extends OpMode {
     static final boolean INVERT_TURRET = false;
 
     // =========================================================================================
-    //  HARDWARE  (null = not in config, that part is skipped)
+    // #region HARDWARE
     // =========================================================================================
-    DcMotor tl, tr, bl, br;
-    DcMotor intk, push, actR, actL;
+
+    Motor tl, tr, bl, br;
+    Motor intk, push, actR, actL;
     ServoImplEx flr, fll, stp;
     CRServo mvR;
 
@@ -166,8 +188,9 @@ public class TeleOpPrelim extends OpMode {
     int missingCount = 0;
 
     // =========================================================================================
-    //  STATE
+    // #region STATE
     // =========================================================================================
+
     enum Alliance { RED, BLUE }
     Alliance alliance = Alliance.RED;
 
@@ -194,31 +217,39 @@ public class TeleOpPrelim extends OpMode {
     boolean pA, pB, pBack, pUp, pDown;
 
     // =========================================================================================
-    //  INIT
+    // #region INIT
     // =========================================================================================
+
     @Override
     public void init() {
         telemetry.log().setCapacity(6);
 
-        // ---- drive (directions from pt, which drives correctly) ----
-        tl = motor(TL, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
-        tr = motor(TR, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
-        bl = motor(BL, DcMotorSimple.Direction.REVERSE, DcMotor.ZeroPowerBehavior.BRAKE);
-        br = motor(BR, DcMotorSimple.Direction.REVERSE, DcMotor.ZeroPowerBehavior.BRAKE);
+        // read all motor encoders in one go per loop instead of one hub call per motor (faster loop)
+        for (LynxModule hub : hardwareMap.getAll(LynxModule.class)) {
+            hub.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        }
+
+        // ---- drive ----
+        // standard mecanum: left side REVERSE, right side FORWARD, so +power = wheel rolls forward.
+        // the drive math below has no sign hacks. if one wheel goes the wrong way, flip ONLY its direction here.
+        tl = motor(TL, DRIVE_RPM, DcMotorSimple.Direction.REVERSE, DcMotor.ZeroPowerBehavior.BRAKE);
+        tr = motor(TR, DRIVE_RPM, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
+        bl = motor(BL, DRIVE_RPM, DcMotorSimple.Direction.REVERSE, DcMotor.ZeroPowerBehavior.BRAKE);
+        br = motor(BR, DRIVE_RPM, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
 
         // ---- intake (from pt) ----
-        intk = motor(INTK, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
+        intk = motor(INTK, INTAKE_RPM, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
 
         // ---- pollen: shooter + ramp (from pt) ----
         // shooter stays BRAKE like pt. FLOAT would let the flywheel coast down instead of
         // slamming to a stop, try it if the shooter mount takes a beating.
-        actR = motor(ACT_R, DcMotorSimple.Direction.REVERSE, DcMotor.ZeroPowerBehavior.BRAKE);
+        actR = motor(ACT_R, POLLEN_RPM, DcMotorSimple.Direction.REVERSE, DcMotor.ZeroPowerBehavior.BRAKE);
         // pt comment: "CHANGE THIS TO REVERSE IF IT SPINS THE WRONG WAY"
-        push = motor(PUSH, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
+        push = motor(PUSH, PUSH_RPM, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
 
         // ---- nectar: shooter + stopper (not built) ----
         // TODO: direction unknown until it's built. flip if it shoots backwards.
-        actL = motor(ACT_L, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
+        actL = motor(ACT_L, NECTAR_RPM, DcMotorSimple.Direction.FORWARD, DcMotor.ZeroPowerBehavior.BRAKE);
         stp = servo(STP, Servo.Direction.FORWARD, false);
         // stopper starts closed so nectar can't roll into the shooter
         if (stp != null) setServoDeg(stp, STOPPER_CLOSED_DEG, STOPPER_RANGE_DEG);
@@ -251,6 +282,8 @@ public class TeleOpPrelim extends OpMode {
         if (gamepad1.b || gamepad2.b) alliance = Alliance.RED;
         if (gamepad1.x || gamepad2.x) alliance = Alliance.BLUE;
 
+        telemetry.addData("FGL26 TeleOp Prelim", VERSION);
+
         telemetry.addData("ALLIANCE", "%s   (B = red, X = blue)", alliance);
         telemetry.addData("Hardware", missingCount == 0 ? "everything found" : missingCount + " missing (skipped)");
         for (String line : report) telemetry.addLine(line);
@@ -270,8 +303,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  LOOP
+    // #region LOOP
     // =========================================================================================
+
     @Override
     public void loop() {
         // each part runs inside safe(), so one broken part can't take down the rest
@@ -292,21 +326,24 @@ public class TeleOpPrelim extends OpMode {
 
     @Override
     public void stop() {
-        for (DcMotor m : new DcMotor[]{tl, tr, bl, br, intk, push, actR, actL}) {
-            if (m != null) m.setPower(0);
+        for (Motor m : new Motor[]{tl, tr, bl, br, intk, push, actR, actL}) {
+            if (m != null) m.set(0);
         }
         if (mvR != null) mvR.setPower(0);
     }
 
     // =========================================================================================
-    //  DRIVE
+    // #region DRIVE
     // =========================================================================================
-    // same mecanum mix as pt (which works). changes: speed scaling + turn flipped.
-    // stick naming is from pt: "strafe" = left stick x, "fwd" = left stick y (up is negative).
+
+    // standard mecanum mix (same as the FTC samples / gm0).
+    //   fwd    = left stick up      (+ = forward)    the only minus sign: gamepad y is negative when pushed up
+    //   strafe = left stick right   (+ = right)
+    //   turn   = right stick right  (+ = clockwise)
     void drive() {
+        double wantFwd = -shape(gamepad1.left_stick_y) * DRIVE_SPEED;
         double wantStrafe = shape(gamepad1.left_stick_x) * DRIVE_SPEED;
-        double wantFwd = shape(gamepad1.left_stick_y) * DRIVE_SPEED;
-        double wantTurn = shape(gamepad1.right_stick_x) * TURN_SPEED * (INVERT_TURN ? -1 : 1);
+        double wantTurn = shape(gamepad1.right_stick_x) * TURN_SPEED;
 
         // time since last loop. capped so a laggy loop can't cause one big jump.
         double dt = Math.min(driveTimer.seconds(), 0.1);
@@ -319,10 +356,10 @@ public class TeleOpPrelim extends OpMode {
 
         double strafe = curStrafe, fwd = curFwd, turn = curTurn;
 
-        double pTL = strafe + fwd + turn;
-        double pTR = strafe - fwd - turn;
-        double pBL = strafe - fwd + turn;
-        double pBR = strafe + fwd - turn;
+        double pTL = fwd + strafe + turn;
+        double pTR = fwd - strafe - turn;
+        double pBL = fwd - strafe + turn;
+        double pBR = fwd + strafe - turn;
 
         // keep ratios the same if anything goes over 1
         double max = Math.max(1.0, Math.max(Math.max(Math.abs(pTL), Math.abs(pTR)),
@@ -346,8 +383,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  INTAKE
+    // #region INTAKE
     // =========================================================================================
+
     // RB hold = intake, LB hold = outtake (holds always win).
     // A / B = toggles. turning one toggle on turns the other off.
     void intake() {
@@ -365,8 +403,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  FLOWER RELEASER
+    // #region FLOWER RELEASER
     // =========================================================================================
+
     // dpad up = engaged (155), dpad down = disengaged (70). both servos get the same angle,
     // fll is REVERSE so it mirrors flr.
     void flower() {
@@ -386,8 +425,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  POLLEN SHOOTER  (RT hold)
+    // #region POLLEN SHOOTER
     // =========================================================================================
+
     // RT pressed  -> actR at rev power, timer starts
     // after POLLEN_REV_TIME -> actR at shoot power, push (ramp) on
     // RT released -> both off
@@ -409,8 +449,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  NECTAR SHOOTER  (LT hold)
+    // #region NECTAR SHOOTER
     // =========================================================================================
+
     // state machine, see the TUNING section for the full sequence.
     void nectar() {
         boolean held = gamepad1.left_trigger > 0.5;
@@ -463,8 +504,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  TURRET  (dpad left/right manual, autoalign STUB)
+    // #region TURRET
     // =========================================================================================
+
     // manual always wins over autoalign.
     //
     // STUB: autoalign. turret + camera are ignored for now. when we get to it:
@@ -505,8 +547,9 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  DRIVE TO POSITION  (X / Y hold)  -- STUB
+    // #region DRIVE TO POSITION
     // =========================================================================================
+
     // deadwheels / imu are ignored for now, so X and Y only show a status and the robot
     // keeps driving normally.
     //   needs: ppc configured (pod offsets, pod type, directions) + calibrated, a known start
@@ -520,44 +563,46 @@ public class TeleOpPrelim extends OpMode {
     }
 
     // =========================================================================================
-    //  SECONDARY CONTROLLER (gamepad2)  -- STUB
+    // #region SECONDARY CONTROLLER
     // =========================================================================================
+
     // ignored for now. planned: turret manual override with a stick, shooter power trim,
     // pinpoint reset, flower fine adjust.
     void secondaryController() {
     }
 
     // =========================================================================================
-    //  TELEMETRY
+    // #region TELEMETRY
     // =========================================================================================
+
     void showTelemetry() {
         telemetry.addData("Alliance", alliance);
         telemetry.addData("Intake", gamepad1.right_bumper ? "IN (held)" : gamepad1.left_bumper ? "OUT (held)"
                 : intakeToggle ? "IN" : outtakeToggle ? "OUT" : "off");
         telemetry.addData("Flower", flowerState);
         telemetry.addData("Pollen", !pollenHeld ? "off"
-                : pollenTimer.seconds() < POLLEN_REV_TIME
+                : (pollenTimer.seconds() < POLLEN_REV_TIME
                 ? String.format("revving %.1fs", POLLEN_REV_TIME - pollenTimer.seconds())
-                : "FIRING");
-        telemetry.addData("Nectar", nectarPhase == NectarPhase.IDLE ? "off" : nectarPhase + "  shots " + nectarShots);
+                : "FIRING") + rpmText(actR));
+        telemetry.addData("Nectar", nectarPhase == NectarPhase.IDLE ? "off"
+                : nectarPhase + "  shots " + nectarShots + rpmText(actL));
         telemetry.addData("Turret", "%s  | align on shoot: %s", turretStatus, alignOnShoot ? "ON" : "OFF");
         if (!positionStatus.equals("-")) telemetry.addData("Position", positionStatus);
     }
 
     // =========================================================================================
-    //  HELPERS
+    // #region HELPERS
     // =========================================================================================
 
     // load a motor, or report it missing and return null
-    DcMotor motor(String name, DcMotorSimple.Direction dir, DcMotor.ZeroPowerBehavior zpb) {
-        DcMotor m = hardwareMap.tryGet(DcMotor.class, name);
+    Motor motor(String name, double rpm, DcMotorSimple.Direction dir, DcMotor.ZeroPowerBehavior zpb) {
+        DcMotorEx m = hardwareMap.tryGet(DcMotorEx.class, name);
         if (m == null) { reportMissing(name); return null; }
         m.setDirection(dir);
-        m.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         m.setZeroPowerBehavior(zpb);
-        m.setPower(0);
-        reportLine(name, "OK");
-        return m;
+        Motor w = new Motor(name, m, rpm);
+        reportLine(name, USE_VELOCITY ? String.format("OK (velocity, %.0f rpm)", rpm) : "OK (power)");
+        return w;
     }
 
     // load a positional servo (500-2500us = full 270 deg range on goBILDA/REV servos)
@@ -577,8 +622,78 @@ public class TeleOpPrelim extends OpMode {
         s.setPwmEnable();
     }
 
-    void power(DcMotor m, double p) {
-        if (m != null) m.setPower(p);
+    void power(Motor m, double p) {
+        if (m != null) m.set(p);
+    }
+
+    // " | 3540/3600 rpm" for telemetry (actual / target, output shaft)
+    String rpmText(Motor m) {
+        if (m == null || !m.velocity) return "";
+        return String.format("  | %.0f/%.0f rpm", m.rpmNow(), m.target * m.rpm);
+    }
+
+    // wraps a motor so the rest of the code can keep saying power(m, 0.6).
+    // velocity mode: 0.6 -> setVelocity(0.6 * max ticks/sec).
+
+    // the math (goBILDA yellow jacket):
+    //   ticks per output rev = CPR * gear ratio = 28 * (6000 / rpm)    e.g. 312 rpm -> 538.5
+    //   max ticks/sec        = rpm / 60 * ticks per output rev
+    // fun fact: that always comes out to 2800 ticks/sec for any yellow jacket, because the encoder
+    // sits on the motor before the gearbox. the rpm still matters for the rpm telemetry and if a
+    // motor ever gets swapped for a non-gobilda one.
+    
+    // note: 1.0 = no-load top speed, which a loaded motor can't actually hit. asking for it just
+    // means the motor runs flat out (same as power 1.0). for anything that needs to HOLD a speed
+    // (shooters), stay under ~0.9 so the controller has room to push back after a shot.
+    class Motor {
+        final String name;
+        final DcMotorEx m;
+        final double rpm;
+        final double ticksPerRev, maxTicksPerSec;
+        boolean velocity;        // false = plain power (USE_VELOCITY off, or encoder failed the check)
+        boolean verified = false; // encoder has read movement at least once, stop checking
+        double target = 0;
+        final ElapsedTime checkTimer = new ElapsedTime();
+        boolean checking = false;
+
+        Motor(String name, DcMotorEx m, double rpm) {
+            this.name = name;
+            this.m = m;
+            this.rpm = rpm;
+            ticksPerRev = GOBILDA_ENCODER_CPR * (GOBILDA_BARE_RPM / rpm);
+            maxTicksPerSec = rpm / 60.0 * ticksPerRev;
+            velocity = USE_VELOCITY;
+            m.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            m.setMode(velocity ? DcMotor.RunMode.RUN_USING_ENCODER : DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            set(0);
+        }
+
+        void set(double p) {
+            target = Range.clip(p, -1, 1);
+            if (velocity) {
+                checkEncoder();
+                if (velocity) { m.setVelocity(target * maxTicksPerSec); return; }
+            }
+            m.setPower(target);
+        }
+
+        // output shaft rpm right now
+        double rpmNow() {
+            return m.getVelocity() / ticksPerRev * 60.0;
+        }
+
+        // only runs until the encoder has been seen working once
+        void checkEncoder() {
+            if (verified) return;
+            if (Math.abs(target) < ENCODER_CHECK_SPEED) { checking = false; return; }
+            if (m.getVelocity() != 0) { verified = true; return; }
+            if (!checking) { checking = true; checkTimer.reset(); return; }
+            if (checkTimer.seconds() > ENCODER_CHECK_TIME) {
+                velocity = false;
+                m.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                telemetry.log().add(name + ": encoder reads 0, switched to plain power");
+            }
+        }
     }
 
     // deadzone + optional squaring, same as pt
