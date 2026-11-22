@@ -3,16 +3,17 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.CRServoImplEx;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.Range;
 
-@TeleOp(name = "Port0 Servo Test", group = "2STest")
-public class ServoTest0 extends LinearOpMode {
+@TeleOp(name = "Port0 Servo Test (GoBilda)", group = "2STest")
+public class ServoTest0G extends LinearOpMode {
 
-    static final double RANGE_DEG = 270;
-    static final double START_TARGET_DEG = 135;
+    static final double RANGE_DEG = 1800; // gobilda 5 turn (2000-0025-0502)
+    static final double START_TARGET_DEG = 900;
 
     @Override
     public void runOpMode() {
@@ -45,6 +46,8 @@ public class ServoTest0 extends LinearOpMode {
 
     // ---------------- continuous rotation ----------------
     private void runCR(CRServo servo) {
+        // gobilda continuous mode range
+        if (servo instanceof CRServoImplEx) ((CRServoImplEx) servo).setPwmRange(new PwmControl.PwmRange(900, 2100));
         waitForStart();
         while (opModeIsActive()) {
             // Y = 100%, A = 75%, default 50%
