@@ -7,7 +7,6 @@ import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.ivy.Command;
 import com.pedropathing.math.Pose;
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import com.pedropathing.api.Paths;
@@ -28,7 +27,7 @@ public class ParkAutonomous extends LinearOpMode {
     // #region CONFIG NAMES
     // =========================================================================================
 
-    protected double START_HEADING = 90;  // Default for red alliance.
+    protected double START_HEADING = 0;  // Default for red alliance.
 
     // =========================================================================================
     // #region DERIVED CONSTANTS -- DO NOT ADD VALUES

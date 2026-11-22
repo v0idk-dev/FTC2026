@@ -1,0 +1,10 @@
+package org.firstinspires.ftc.teamcode.auto.WHAT_PACKAGE_ARE_WE_IN;
+
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+
+@Autonomous(name = "WHAT_NAME_IS_THIS_AUTO_PROGRAM_TO_HAVE_IN_THE_DRIVER_HUB", group = "Autonomous")
+public class CLASS_NAME_GOES_HERE extends ParkAutonomous {
+    public CLASS_NAME_GOES_HERE() {
+        super(RED_OR_BLUE?);
+    }
+}
