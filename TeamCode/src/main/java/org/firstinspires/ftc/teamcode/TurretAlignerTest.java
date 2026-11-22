@@ -16,9 +16,11 @@ public class TurretAlignerTest extends OpMode {
     private TurretAligner turret = new TurretAligner();
 
     // tuning constants
-    private static final double kP_step = 0.0001;
-    private static final double kD_step = 0.00001;
+    private static final double kP_step = 0.01;
+    private static final double kD_step = 0.001;
     private boolean wasUp, wasDown, wasRight, wasLeft;
+
+    private static final String TARGET_CLUSTER = "BLUE AUDIENCE";
 
 
     public void init() {
@@ -60,15 +62,15 @@ public class TurretAlignerTest extends OpMode {
 
 
         webcam.update();
-        AprilTagClusterDetection target = webcam.getClusterByName("RED SCORING"); // tags 30 31 32 33 cluster in biobuzz is RED SCORING
+        AprilTagClusterDetection target = webcam.getClusterByName(TARGET_CLUSTER); // tags 30 31 32 33 cluster in biobuzz is RED SCORING
         turret.update(target);
 
-        // encoder telemetry
-        telemetry.addData("Turret ticks from center", turret.getTurretTicks());
+//        // encoder telemetry
+//        telemetry.addData("Turret ticks from center", turret.getTurretTicks());
 
         // scoring cluster telemerty
         if (target == null) {
-            telemetry.addLine("RED SCORING cluster not visible");
+            telemetry.addLine(TARGET_CLUSTER + " cluster not visible");
         } else {
             telemetry.addData("Cluster", target.metadata.name);
             telemetry.addData("Visible", target.percentClusterFound);
