@@ -25,7 +25,7 @@ public final class AutoConstants {
         public static final double LENGTH = 20.692;
         public static final double WIDTH = 10;
 
-        public static final double X = Field.WIDTH;  // End of the field
+        public static final double X = 0;  // One end of the field
         public static final double Y = Field.HEIGHT / 12 * 3;  // Middle of the Loading Zone
 
     }

@@ -28,29 +28,43 @@ public class ParkAutonomous extends LinearOpMode {
     // #region CONFIG NAMES
     // =========================================================================================
 
-    private double START_HEADING = 90;  // Default for red alliance.
+    protected double START_HEADING = 90;  // Default for red alliance.
 
     // =========================================================================================
     // #region DERIVED CONSTANTS -- DO NOT ADD VALUES
     // =========================================================================================
 
-    private Pose START_POSE; // Assuming an 18x18 robot. units are all inches. USA USA USA.
 
     // =========================================================================================
     // #region ACTUAL CODE
     // =========================================================================================
 
+    protected String alliance;
 
     // The Follower that drives the robot. Set up in runOpMode(), so it's null until then.
-    private Follower follower;
+    protected Follower follower;
 
     // Factory for making Poses. degrees() means headings are in degrees (0-360).
     // The alternative would be radians.
-    private final PoseFactory poseFactory = PoseFactory.degrees();
+    protected final PoseFactory poseFactory = PoseFactory.degrees();
 
     // Ending position
-    private final Pose parkAutonomous = poseFactory.of(10, 108, 90);
 
+    protected Pose START_POSE; // Assuming an 18x18 robot. units are all inches. USA USA USA.
+    protected Pose END_POSE;
+
+    public ParkAutonomous(String alliance) {
+        this.alliance = alliance;
+        if (alliance.equals("BLUE")) {
+            // Super cool Pedro feature: all future poses created by poseFactory will be mirrored to Blue.
+            poseFactory.mirrorAroundPoint(Field.HALF_WIDTH, Field.HALF_HEIGHT);
+        } else if (!alliance.equals("RED")) {
+            throw new IllegalArgumentException("Invalid alliance: " + alliance);
+        }
+
+        START_POSE = poseFactory.of(LoadingZone.X, LoadingZone.Y - LoadingZone.LENGTH / 2 - Robot.START_LENGTH / 2, START_HEADING);
+        END_POSE = poseFactory.of(LoadingZone.X + Robot.START_WIDTH/2, LoadingZone.Y, START_HEADING);
+    }
 
     public Command autoRoutine() {
         return sequential(
@@ -97,23 +111,10 @@ public class ParkAutonomous extends LinearOpMode {
         }
     }
 
-    // Builds the Path that drives from start to parkAutonomous.
+    // Builds the Path that drives from start to end.
     // Paths.line(...) makes a straight line between two Poses.
     // .constant(...) is a chained option that holds the robot's heading steady for this path.
-    public Path parkAutonomous(String alliance) {
-        if (alliance.equals("RED")) {}
-        else if (alliance.equals("BLUE")) {
-            // Super cool Pedro feature: all future poses created by poseFactory will be mirrored to Blue.
-            poseFactory.mirrorAroundPoint(Field.HALF_WIDTH, Field.HALF_HEIGHT);
-        } else {
-            throw new IllegalArgumentException("Invalid alliance: " + alliance);
-        }
-
-        return Paths.line(START_POSE, parkAutonomous).constant(parkAutonomous);
-    }
-
     public Path parkAutonomous() {
-
-        return Paths.line(START_POSE, parkAutonomous).constant(parkAutonomous);
+        return Paths.line(START_POSE, END_POSE).constant(END_POSE);
     }
 }
