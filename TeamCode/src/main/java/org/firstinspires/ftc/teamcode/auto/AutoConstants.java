@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.auto;
 
+import com.pedropathing.math.Pose;
+
 public final class AutoConstants {
 
     public static final class Robot {
@@ -22,16 +24,24 @@ public final class AutoConstants {
     // Pedropathing uses a 144 x 144 field, where the bottom-left corner is (0,0). Think x-y graphs.
 
     public class LoadingZone {
-        public static final double LENGTH = 20.692;
-        public static final double WIDTH = 10;
+        public static final double LENGTH = 23;
+        public static final double WIDTH = 11;
 
-        public static final double X = 0;  // One end of the field
-        public static final double Y = Field.HEIGHT / 12 * 3;  // Middle of the Loading Zone
+        public static final double X = 0;  // The end of the field
+        public static final double Y = Field.HEIGHT / 12 * 9;  // Middle of the Loading Zone
 
+        public static final double END_HEADING = 0;
+
+        public static final double NEAR_WALL_PARK_X = X + Robot.START_WIDTH / 2;
+
+        public static final double NEAR_WALL_PARK_Y = Y + LENGTH * 0.7;
+
+        public static final double FAR_WALL_PARK_X = X + Robot.START_WIDTH / 2;
+
+        public static final double FAR_WALL_PARK_Y = Y - LENGTH * 0.7;
     }
 
-    // =========================================================================================
-    // #region DERIVED CONSTANTS -- DO NOT ADD VALUES
-    // =========================================================================================
-
+    public class Poses {
+//        FLOWER_VERTICAL =
+    }
 }

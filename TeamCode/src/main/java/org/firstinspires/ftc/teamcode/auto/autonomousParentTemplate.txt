@@ -27,7 +27,7 @@ public class CLASS_NAME_GOES_HERE extends LinearOpMode {
     // #region CONFIG NAMES
     // =========================================================================================
 
-    protected double START_HEADING = 90;  // Default for red alliance.
+    protected double START_HEADING = 90;  // All values are default for red alliance; flipped for blue.
 
     // =========================================================================================
     // #region DERIVED CONSTANTS -- DO NOT ADD VALUES
@@ -46,6 +46,8 @@ public class CLASS_NAME_GOES_HERE extends LinearOpMode {
     // Factory for making Poses. degrees() means headings are in degrees (0-360).
     // The alternative would be radians.
     protected final PoseFactory poseFactory = PoseFactory.degrees();
+
+    protected Pose START_POSE;
 
     public CLASS_NAME_GOES_HERE(String alliance) {
         this.alliance = alliance;
