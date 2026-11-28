@@ -7,8 +7,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
-// TODO: switch turret_servo to continuous rotation servo with servo programmer
-// TODO: add encoder code and track position with ticks
+// TODO: get min and max degrees
 
 @TeleOp(name = "Turret Aligner Test", group = "2STest")
 public class TurretAlignerTest extends OpMode {
@@ -28,6 +27,11 @@ public class TurretAlignerTest extends OpMode {
         turret.init(hardwareMap);
 
         telemetry.addLine("initialized all mechanisms");
+    }
+
+    @Override
+    public void init_loop() {
+        telemetry.addData("Turret degrees", turret.getEncoderDegrees());
     }
 
     public void start() {
@@ -65,8 +69,8 @@ public class TurretAlignerTest extends OpMode {
         AprilTagClusterDetection target = webcam.getClusterByName(TARGET_CLUSTER); // tags 30 31 32 33 cluster in biobuzz is RED SCORING
         turret.update(target);
 
-//        // encoder telemetry
-//        telemetry.addData("Turret ticks from center", turret.getTurretTicks());
+        // encoder telemetry
+        telemetry.addData("Turret degrees", turret.getEncoderDegrees());
 
         // scoring cluster telemerty
         if (target == null) {

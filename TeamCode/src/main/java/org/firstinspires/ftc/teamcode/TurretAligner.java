@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -14,11 +15,11 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 public class TurretAligner {
     private CRServo servo;
-    private DcMotor encoder;
+    private AnalogInput encoder;
 
-    private int centerTicks;
-    private int min_ticks = 0; // TODO: set mininum tick
-    private int max_ticks = 18000; // TODO: set maximum tick
+    private int centerTicks = 0;
+    private int min_degrees = 0; // TODO: set mininum tick
+    private int max_degrees = 18000; // TODO: set maximum tick
 
     private double kP = 0.1;
     private double kD = 0.01;
@@ -47,8 +48,8 @@ public class TurretAligner {
     private final ElapsedTime timer = new ElapsedTime();
 
     public void init(HardwareMap hwMap) {
-//        encoder = hwMap.get(DcMotor.class, "turret_encoder");
-//        centerTicks = encoder.getCurrentPosition();
+
+        encoder = hwMap.get(AnalogInput.class, "turret_encoder");
         servo = hwMap.get(CRServo.class, "mvR");
         servo.setDirection(DcMotorSimple.Direction.REVERSE);
     }
@@ -102,19 +103,23 @@ public class TurretAligner {
             power = Range.clip(pTerm + dTerm, -max_power, max_power); // clips the min and max power the servo can go
         }
 
-        // safety control to not go over the min/max tick boundaries
-//        int ticks = getTurretTicks();
-//        if ((ticks > max_ticks && power > 0) || (ticks < min_ticks && power < 0)) {
-//            power = 0;
-//        }
+         // safety control to not go over the min/max tick boundaries
+        double degrees = getEncoderDegrees();
+
+        if (!(min_degrees < max_degrees)) {
+            power = 0;
+        } else if ((degrees >= max_degrees && power > 0) ||
+                (degrees <= min_degrees && power < 0)) {
+            power = 0;
+        }
 
         servo.setPower(power);
         lastError = error;
 
     }
 
-//    public int getTurretTicks() {
-//        return encoder.getCurrentPosition() - centerTicks;
-//    }
+    public double getEncoderDegrees() {
+        return encoder.getVoltage() * 360.0 / 3.3;
+    }
 
 }
