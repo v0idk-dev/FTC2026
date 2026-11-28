@@ -112,7 +112,7 @@
 //    // Paths.line(...) makes a straight line between two Poses.
 //    // .constant(...) is a chained option that holds the robot's heading steady for this path.
 //    public Path FrontOfGarden() {
-//        return Paths.curve(START_POSE, FRONT_GARDEN_POSE).linear(END_POSE);
+//        return Paths.curve(START_POSE, FRONT_GARDEN_POSE).linear(START_POSE, FRONT_GARDEN_POSE);
 //        return null;
 //    }
 //}
