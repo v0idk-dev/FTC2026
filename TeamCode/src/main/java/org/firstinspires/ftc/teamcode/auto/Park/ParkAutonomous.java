@@ -61,8 +61,8 @@ public class ParkAutonomous extends LinearOpMode {
             throw new IllegalArgumentException("Invalid alliance: " + alliance);
         }
 
-        START_POSE = poseFactory.of(LoadingZone.X, LoadingZone.Y - LoadingZone.LENGTH / 2 - Robot.START_LENGTH / 2, START_HEADING);
-        END_POSE = poseFactory.of(LoadingZone.X + Robot.START_WIDTH/2, LoadingZone.Y, START_HEADING);
+        START_POSE = poseFactory.of(LoadingZone.X + Robot.START_WIDTH/2, LoadingZone.FAR_WALL_PARK_Y, START_HEADING);
+        END_POSE = poseFactory.of(LoadingZone.X + Robot.START_WIDTH * 0.75, LoadingZone.Y, START_HEADING);
     }
 
     public Command autoRoutine() {
@@ -114,6 +114,6 @@ public class ParkAutonomous extends LinearOpMode {
     // Paths.line(...) makes a straight line between two Poses.
     // .constant(...) is a chained option that holds the robot's heading steady for this path.
     public Path parkAutonomous() {
-        return Paths.line(START_POSE, END_POSE).constant(END_POSE);
+        return Paths.line(START_POSE, END_POSE).linear(START_POSE, END_POSE);
     }
 }
